@@ -43,20 +43,20 @@
 
 MODBUS_BEGIN_DECLS
 
-#ifndef FALSE
-#define FALSE 0
+#ifndef MB_FALSE
+#define MB_FALSE 0
 #endif
 
-#ifndef TRUE
-#define TRUE 1
+#ifndef MB_TRUE
+#define MB_TRUE 1
 #endif
 
-#ifndef OFF
-#define OFF 0
+#ifndef MB_OFF
+#define MB_OFF 0
 #endif
 
-#ifndef ON
-#define ON 1
+#ifndef MB_ON
+#define MB_ON 1
 #endif
 
 /* Modbus function codes */

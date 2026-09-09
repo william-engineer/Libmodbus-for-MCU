@@ -1,5 +1,5 @@
 /*
- * Libmodbus for MCU - Version 1.0.0
+ * Libmodbus for MCU - Version 1.1.0
  * Based on libmodbus 3.1.11
  *
  * Copyright © William Chen <william_engineer@outlook.com>
@@ -26,17 +26,17 @@
 #define LIBMODBUS_FOR_MCU_VERSION_MAJOR (1)
 
 /* The minor version (2, if %LIBMODBUS_VERSION is 1.2.3) */
-#define LIBMODBUS_FOR_MCU_VERSION_MINOR (0)
+#define LIBMODBUS_FOR_MCU_VERSION_MINOR (1)
 
 /* The micro version (3, if %LIBMODBUS_FOR_MCU_VERSION is 1.2.3) */
 #define LIBMODBUS_FOR_MCU_VERSION_MICRO (0)
 
 /* The full version, like 1.2.3 */
-#define LIBMODBUS_FOR_MCU_VERSION 1.0.0
+#define LIBMODBUS_FOR_MCU_VERSION 1.1.0
 
 /* The full version, in string form (suited for string concatenation)
  */
-#define LIBMODBUS_FOR_MCU_VERSION_STRING "1.0.0"
+#define LIBMODBUS_FOR_MCU_VERSION_STRING "1.1.0"
 
 /* The major version, (1, if %LIBMODBUS_VERSION is 1.2.3) */
 #define LIBMODBUS_VERSION_MAJOR (3)

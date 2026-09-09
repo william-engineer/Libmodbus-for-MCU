@@ -432,8 +432,13 @@ int _modbus_receive_msg(modbus_t *ctx, uint8_t *msg, msg_type_t msg_type)
     }
 
     /* Add a file descriptor to the set */
-    FD_ZERO(&rset);
-    FD_SET(ctx->s, &rset);
+#ifdef  __MCU__
+    if (ctx->backend->backend_type == _MODBUS_BACKEND_TYPE_TCP)
+#endif
+    {
+      FD_ZERO(&rset);
+      FD_SET(ctx->s, &rset);
+    }
 
     /* We need to analyse the message step by step.  At the first step, we want
      * to reach the function code because all packets contain this
@@ -460,6 +465,10 @@ int _modbus_receive_msg(modbus_t *ctx, uint8_t *msg, msg_type_t msg_type)
     }
 
     while (length_to_read != 0) {
+#ifdef  __MCU__
+      if (ctx->backend->backend_type == _MODBUS_BACKEND_TYPE_TCP)
+#endif
+      {
         rc = ctx->backend->select(ctx, &rset, p_tv, length_to_read);
         if (rc == -1) {
             _error_print(ctx, "select");
@@ -487,6 +496,7 @@ int _modbus_receive_msg(modbus_t *ctx, uint8_t *msg, msg_type_t msg_type)
             }
             return -1;
         }
+      }
 
         rc = ctx->backend->recv(ctx, msg + msg_length, length_to_read);
 #ifndef __MCU__
@@ -520,9 +530,11 @@ int _modbus_receive_msg(modbus_t *ctx, uint8_t *msg, msg_type_t msg_type)
                 modbus_connect(ctx);
                 /* Could be removed by previous calls */
                 errno = saved_errno;
+				return -1;
             }
+			return -1;
 #endif
-            return -1;
+			   
         }
 
         /* Display the hex code of each character received */
@@ -664,8 +676,8 @@ static int check_confirmation(modbus_t *ctx, uint8_t *req, uint8_t *rsp, int rsp
         function < 0x80) {
         int req_nb_value;
         int rsp_nb_value;
-        int resp_addr_ok = TRUE;
-        int resp_data_ok = TRUE;
+        int resp_addr_ok = MB_TRUE;
+        int resp_data_ok = MB_TRUE;
 
         /* Check function code */
         if (function != req[offset]) {
@@ -713,7 +725,7 @@ static int check_confirmation(modbus_t *ctx, uint8_t *req, uint8_t *rsp, int rsp
             /* address in request and response must be equal */
             if ((req[offset + 1] != rsp[offset + 1]) ||
                 (req[offset + 2] != rsp[offset + 2])) {
-                resp_addr_ok = FALSE;
+                resp_addr_ok = MB_FALSE;
             }
             /* N Write functions */
             req_nb_value = (req[offset + 3] << 8) + req[offset + 4];
@@ -728,12 +740,12 @@ static int check_confirmation(modbus_t *ctx, uint8_t *req, uint8_t *rsp, int rsp
             /* address in request and response must be equal */
             if ((req[offset + 1] != rsp[offset + 1]) ||
                 (req[offset + 2] != rsp[offset + 2])) {
-                resp_addr_ok = FALSE;
+                resp_addr_ok = MB_FALSE;
             }
             /* data in request and response must be equal */
             if ((req[offset + 3] != rsp[offset + 3]) ||
                 (req[offset + 4] != rsp[offset + 4])) {
-                resp_data_ok = FALSE;
+                resp_data_ok = MB_FALSE;
             }
             /* 1 Write functions & others */
             req_nb_value = rsp_nb_value = 1;
@@ -744,8 +756,8 @@ static int check_confirmation(modbus_t *ctx, uint8_t *req, uint8_t *rsp, int rsp
             break;
         }
 
-        if ((req_nb_value == rsp_nb_value) && (resp_addr_ok == TRUE) &&
-            (resp_data_ok == TRUE)) {
+        if ((req_nb_value == rsp_nb_value) && (resp_addr_ok == MB_TRUE) &&
+            (resp_data_ok == MB_TRUE)) {
             rc = rsp_nb_value;
         } else {
             if (ctx->debug) {
@@ -908,7 +920,7 @@ int modbus_reply(modbus_t *ctx,
                                             &sft,
                                             MODBUS_EXCEPTION_ILLEGAL_DATA_VALUE,
                                             rsp,
-                                            TRUE,
+                                            MB_TRUE,
                                             "Illegal nb of values %d in %s (max %d)\n",
                                             nb,
                                             name,
@@ -918,7 +930,7 @@ int modbus_reply(modbus_t *ctx,
                                             &sft,
                                             MODBUS_EXCEPTION_ILLEGAL_DATA_ADDRESS,
                                             rsp,
-                                            FALSE,
+                                            MB_FALSE,
                                             "Illegal data address 0x%0X in %s\n",
                                             mapping_address < 0 ? address : address + nb,
                                             name);
@@ -949,7 +961,7 @@ int modbus_reply(modbus_t *ctx,
                                             &sft,
                                             MODBUS_EXCEPTION_ILLEGAL_DATA_VALUE,
                                             rsp,
-                                            TRUE,
+                                            MB_TRUE,
                                             "Illegal nb of values %d in %s (max %d)\n",
                                             nb,
                                             name,
@@ -959,7 +971,7 @@ int modbus_reply(modbus_t *ctx,
                                             &sft,
                                             MODBUS_EXCEPTION_ILLEGAL_DATA_ADDRESS,
                                             rsp,
-                                            FALSE,
+                                            MB_FALSE,
                                             "Illegal data address 0x%0X in %s\n",
                                             mapping_address < 0 ? address : address + nb,
                                             name);
@@ -982,7 +994,7 @@ int modbus_reply(modbus_t *ctx,
                                             &sft,
                                             MODBUS_EXCEPTION_ILLEGAL_DATA_ADDRESS,
                                             rsp,
-                                            FALSE,
+                                            MB_FALSE,
                                             "Illegal data address 0x%0X in write bit\n",
                                             address);
             break;
@@ -997,7 +1009,7 @@ int modbus_reply(modbus_t *ctx,
                 &sft,
                 MODBUS_EXCEPTION_ILLEGAL_DATA_VALUE,
                 rsp,
-                FALSE,
+                MB_FALSE,
                 "Invalid request length in modbus_reply to write bit (%d)\n",
                 req_length);
             break;
@@ -1010,7 +1022,7 @@ int modbus_reply(modbus_t *ctx,
         int data = (req[offset + 3] << 8) + req[offset + 4];
         if (data == 0xFF00 || data == 0x0) {
             /* Apply the change to mapping */
-            mb_mapping->tab_bits[mapping_address] = data ? ON : OFF;
+            mb_mapping->tab_bits[mapping_address] = data ? MB_ON : MB_OFF;
             /* Prepare response */
             memcpy(rsp, req, rsp_length);
         } else {
@@ -1019,7 +1031,7 @@ int modbus_reply(modbus_t *ctx,
                 &sft,
                 MODBUS_EXCEPTION_ILLEGAL_DATA_VALUE,
                 rsp,
-                FALSE,
+                MB_FALSE,
                 "Illegal data value 0x%0X in write_bit request at address %0X\n",
                 data,
                 address);
@@ -1034,7 +1046,7 @@ int modbus_reply(modbus_t *ctx,
                                    &sft,
                                    MODBUS_EXCEPTION_ILLEGAL_DATA_ADDRESS,
                                    rsp,
-                                   FALSE,
+                                   MB_FALSE,
                                    "Illegal data address 0x%0X in write_register\n",
                                    address);
             break;
@@ -1048,7 +1060,7 @@ int modbus_reply(modbus_t *ctx,
                 &sft,
                 MODBUS_EXCEPTION_ILLEGAL_DATA_VALUE,
                 rsp,
-                FALSE,
+                MB_FALSE,
                 "Invalid request length in modbus_reply to write register (%d)\n",
                 req_length);
             break;
@@ -1074,7 +1086,7 @@ int modbus_reply(modbus_t *ctx,
                                    &sft,
                                    MODBUS_EXCEPTION_ILLEGAL_DATA_VALUE,
                                    rsp,
-                                   TRUE,
+                                   MB_TRUE,
                                    "Illegal number of values %d in write_bits (max %d)\n",
                                    nb,
                                    MODBUS_MAX_WRITE_BITS);
@@ -1083,7 +1095,7 @@ int modbus_reply(modbus_t *ctx,
                                             &sft,
                                             MODBUS_EXCEPTION_ILLEGAL_DATA_ADDRESS,
                                             rsp,
-                                            FALSE,
+                                            MB_FALSE,
                                             "Illegal data address 0x%0X in write_bits\n",
                                             mapping_address < 0 ? address : address + nb);
         } else {
@@ -1108,7 +1120,7 @@ int modbus_reply(modbus_t *ctx,
                 &sft,
                 MODBUS_EXCEPTION_ILLEGAL_DATA_VALUE,
                 rsp,
-                TRUE,
+                MB_TRUE,
                 "Illegal number of values %d in write_registers (max %d)\n",
                 nb,
                 MODBUS_MAX_WRITE_REGISTERS);
@@ -1119,7 +1131,7 @@ int modbus_reply(modbus_t *ctx,
                                    &sft,
                                    MODBUS_EXCEPTION_ILLEGAL_DATA_ADDRESS,
                                    rsp,
-                                   FALSE,
+                                   MB_FALSE,
                                    "Illegal data address 0x%0X in write_registers\n",
                                    mapping_address < 0 ? address : address + nb);
         } else {
@@ -1172,7 +1184,7 @@ int modbus_reply(modbus_t *ctx,
                                    &sft,
                                    MODBUS_EXCEPTION_ILLEGAL_DATA_ADDRESS,
                                    rsp,
-                                   FALSE,
+                                   MB_FALSE,
                                    "Illegal data address 0x%0X in write_register\n",
                                    address);
         } else {
@@ -1190,7 +1202,7 @@ int modbus_reply(modbus_t *ctx,
                                                 &sft,
                                                 MODBUS_EXCEPTION_ILLEGAL_DATA_VALUE,
                                                 rsp,
-                                                FALSE,
+                                                MB_FALSE,
                                                 "Invalid request length in modbus_reply "
                                                 "to mask write register (%d)\n",
                                                 req_length);
@@ -1216,7 +1228,7 @@ int modbus_reply(modbus_t *ctx,
                 &sft,
                 MODBUS_EXCEPTION_ILLEGAL_DATA_VALUE,
                 rsp,
-                TRUE,
+                MB_TRUE,
                 "Illegal nb of values (W%d, R%d) in write_and_read_registers (max W%d, "
                 "R%d)\n",
                 nb_write,
@@ -1232,7 +1244,7 @@ int modbus_reply(modbus_t *ctx,
                 &sft,
                 MODBUS_EXCEPTION_ILLEGAL_DATA_ADDRESS,
                 rsp,
-                FALSE,
+                MB_FALSE,
                 "Illegal data read address 0x%0X or write address 0x%0X "
                 "write_and_read_registers\n",
                 mapping_address < 0 ? address : address + nb,
@@ -1263,7 +1275,7 @@ int modbus_reply(modbus_t *ctx,
                                         &sft,
                                         MODBUS_EXCEPTION_ILLEGAL_FUNCTION,
                                         rsp,
-                                        TRUE,
+                                        MB_TRUE,
                                         "Unknown Modbus function code: 0x%0X\n",
                                         function);
         break;
@@ -1346,7 +1358,7 @@ static int read_io_status(modbus_t *ctx, int function, int addr, int nb, uint8_t
             temp = rsp[i];
 
             for (bit = 0x01; (bit & 0xff) && (pos < nb);) {
-                dest[pos++] = (temp & bit) ? TRUE : FALSE;
+                dest[pos++] = (temp & bit) ? MB_TRUE : MB_FALSE;
                 bit = bit << 1;
             }
         }
@@ -1899,7 +1911,7 @@ void _modbus_init_common(modbus_t *ctx)
     ctx->slave = -1;
     ctx->s = -1;
 
-    ctx->debug = FALSE;
+    ctx->debug = MB_FALSE;
     ctx->error_recovery = MODBUS_ERROR_RECOVERY_NONE;
     ctx->quirks = MODBUS_QUIRK_NONE;
 

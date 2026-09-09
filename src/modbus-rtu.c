@@ -315,7 +315,7 @@ static int _modbus_rtu_receive(modbus_t *ctx, uint8_t *req)
     if (ctx_rtu->confirmation_to_ignore) {
         _modbus_receive_msg(ctx, req, MSG_CONFIRMATION);
         /* Ignore errors and reset the flag */
-        ctx_rtu->confirmation_to_ignore = FALSE;
+        ctx_rtu->confirmation_to_ignore = MB_FALSE;
         rc = 0;
         if (ctx->debug) {
 #ifndef  __MCU__
@@ -328,7 +328,7 @@ static int _modbus_rtu_receive(modbus_t *ctx, uint8_t *req)
         rc = _modbus_receive_msg(ctx, req, MSG_INDICATION);
         if (rc == 0) {
             /* The next expected message is a confirmation to ignore */
-            ctx_rtu->confirmation_to_ignore = TRUE;
+            ctx_rtu->confirmation_to_ignore = MB_TRUE;
         }
     }
     return rc;
@@ -517,28 +517,28 @@ static int _modbus_rtu_connect(modbus_t *ctx)
     /* Parity */
     if (ctx_rtu->parity == 'N') {
         dcb.Parity = NOPARITY;
-        dcb.fParity = FALSE;
+        dcb.fParity = MB_FALSE;
     } else if (ctx_rtu->parity == 'E') {
         dcb.Parity = EVENPARITY;
-        dcb.fParity = TRUE;
+        dcb.fParity = MB_TRUE;
     } else {
         /* odd */
         dcb.Parity = ODDPARITY;
-        dcb.fParity = TRUE;
+        dcb.fParity = MB_TRUE;
     }
 
     /* Hardware handshaking left as default settings retrieved */
 
     /* No software handshaking */
-    dcb.fTXContinueOnXoff = TRUE;
-    dcb.fOutX = FALSE;
-    dcb.fInX = FALSE;
+    dcb.fTXContinueOnXoff = MB_TRUE;
+    dcb.fOutX = MB_FALSE;
+    dcb.fInX = MB_FALSE;
 
     /* Binary mode (it's the only supported on Windows anyway) */
-    dcb.fBinary = TRUE;
+    dcb.fBinary = MB_TRUE;
 
     /* Don't want errors to be blocking */
-    dcb.fAbortOnError = FALSE;
+    dcb.fAbortOnError = MB_FALSE;
 
     /* Setup port */
     if (!SetCommState(ctx_rtu->w_ser.fd, &dcb)) {
@@ -938,9 +938,26 @@ static int _modbus_rtu_connect(modbus_t *ctx)
 #endif
   }
 
-  /* to avoid reinitializing the uart peripheral */
-  if ((l_pstUartDevice->m_pvSendSem == NULL) || (l_pstUartDevice->m_pvRecvSem == NULL)) {
-    l_pstUartDevice->m_pFnInit(l_pstUartDevice, ctx_rtu->baud, ctx_rtu->parity, ctx_rtu->data_bit, ctx_rtu->stop_bit);
+  if (l_pstUartDevice == NULL) {
+    errno = ENODEV;
+    return -1;
+  }
+
+  /* Only report a connected context after UART, DMA, RX and semaphores are all ready. */
+  if (!l_pstUartDevice->m_u8Initialized) {
+    if (l_pstUartDevice->m_pFnInit(l_pstUartDevice,
+                                  ctx_rtu->baud,
+                                  ctx_rtu->parity,
+                                  ctx_rtu->data_bit,
+                                  ctx_rtu->stop_bit) == -1) {
+      return -1;
+    }
+  }
+  if (!l_pstUartDevice->m_u8Initialized ||
+      (l_pstUartDevice->m_pvSendSem == NULL) ||
+      (l_pstUartDevice->m_pvRecvSem == NULL)) {
+    errno = EIO;
+    return -1;
   }
   ctx->s = 1;
   return 0;
@@ -1212,7 +1229,7 @@ static int _modbus_rtu_flush(modbus_t *ctx)
 #if defined(_WIN32)
     modbus_rtu_t *ctx_rtu = ctx->backend_data;
     ctx_rtu->w_ser.n_bytes = 0;
-    return (PurgeComm(ctx_rtu->w_ser.fd, PURGE_RXCLEAR) == FALSE);
+    return (PurgeComm(ctx_rtu->w_ser.fd, PURGE_RXCLEAR) == MB_FALSE);
 #else
     return tcflush(ctx->s, TCIOFLUSH);
 #endif
@@ -1401,7 +1418,7 @@ modbus_new_rtu(const char *device, int baud, char parity, int data_bit, int stop
     ctx_rtu->rts_delay = ctx_rtu->onebyte_time;
 #endif
 
-    ctx_rtu->confirmation_to_ignore = FALSE;
+    ctx_rtu->confirmation_to_ignore = MB_FALSE;
 
     return ctx;
 }

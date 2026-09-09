@@ -35,6 +35,7 @@
 *.i*86
 *.x86_64
 *.hex
+*.bin
 
 # Debug files
 *.dSYM/
@@ -54,3 +55,16 @@ dkms.conf
 # Cache
 .DS_Store
 .idea/
+
+# Build directories
+**/build/
+**/Output/
+**/Listings/
+**/Objects/
+
+# Keil MDK per-user files and debug logs
+*.uvguix.*
+*.uvgui.*
+*.uvoptx
+JLinkLog*.txt
+JLinkSettings.ini
